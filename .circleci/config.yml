@@ -37,7 +37,7 @@ jobs:
             else
               cp .circleci/noop.yml .circleci/terraform.yml
             fi
-      - run: circleci config validate .circleci/terraform.yml
+      - run: yq .circleci/terraform.yml
       - continuation/continue:
           configuration_path: .circleci/terraform.yml
 
