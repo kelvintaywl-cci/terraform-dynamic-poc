@@ -13,25 +13,33 @@ jobs:
     steps:
       - checkout
       - run:
-          name: "locate folders with changes -> generate next config"
+          name: locate folders with changes
           command: |
             # find folders modified from commit
             git -c core.quotepath=false diff --name-only $(git rev-parse HEAD~1) HEAD | grep '/' | cut -d '/' -f 1 | uniq | sort > folders_changed.txt
-
+            cat folders_changed.txt
+      - run:
+          name: locate Terraform folders in repo
+          command: |
             # find Terraform stacks based on presence of a lock.hcl file
             find . -name .terraform.lock.hcl | cut -d '/' -f 2 | uniq | sort > tf_stacks.txt
-
+            cat tf_stacks.txt
+      - run:
+          name: Determine folders to trigger Terraform deployment
+          command: |
             # get intersect
             folders="$(comm -12 folders_changed.txt tf_stacks.txt | xargs)"
             # debug
             echo "folders: ${folders}"
-
-            # generate continued YAML
-            f=$folders yq '.workflows.terraform.jobs[0].tf.matrix.parameters.folder = env(f) | .workflows.terraform.jobs[0].tf.matrix.parameters.folder = (.workflows.terraform.jobs[0].tf.matrix.parameters.folder | split(" "))' .circleci/terraform.yml > .circleci/next.yml
-      - run: cat .circleci/next.yml
+            if [ -n "${folders}" ]; then
+              # update continued YAML
+              f=$folders yq -i '.workflows.terraform.jobs[0].tf.matrix.parameters.folder = env(f) | .workflows.terraform.jobs[0].tf.matrix.parameters.folder = (.workflows.terraform.jobs[0].tf.matrix.parameters.folder | split(" "))' .circleci/terraform.yml
+            else
+              cp .circleci/noop.yml .circleci/terraform.yml
+            fi
+      - run: circleci config validate .circleci/terraform.yml
       - continuation/continue:
-          parameters: ''
-          configuration_path: .circleci/next.yml
+          configuration_path: .circleci/terraform.yml
 
 workflows:
   setup:
