@@ -1,0 +1,42 @@
+version: 2.1
+
+jobs:
+  tf:
+    # NOTE:
+    # requires:
+    #   - AWS credentials (for S3 bucket as Terraform backend)
+    #   - CircleCI API token (for creating our Runner resources)
+
+    parameters:
+      folder:
+        type: string
+        description: folder for Terraform stack
+      apply:
+        type: boolean
+        default: false
+      version:
+        type: string
+        description: Terraform version to use
+        default: '1.5.7'
+    docker:
+      - image: hashicorp/terraform:<< parameters.version >>
+    resource_class: medium
+    working_directory: ~/project/<< parameters.folder >>
+    steps:
+      - checkout:
+          path: ~/project
+      - run: terraform init
+      - run: terraform plan -out << parameters.folder >>.tfplan
+      - when:
+          condition: << parameters.apply >>
+          steps:
+            - run: terraform apply << parameters.folder >>.tfplan
+
+workflows:
+  terraform:
+    jobs:
+      - tf:
+          matrix:
+            parameters:
+              # to be filled by setup workflow
+              folder: []

@@ -1,14 +1,39 @@
 version: 2.1
 
+setup: true
+
+orbs:
+  continuation: circleci/continuation@1.0.0
+
 jobs:
-  noop:
+  setup:
     docker:
       - image: cimg/base:current
     resource_class: small
     steps:
-      - run: echo done
+      - checkout
+      - run:
+          name: "locate folders with changes -> generate next config"
+          command: |
+            # find folders modified from commit
+            git -c core.quotepath=false diff --name-only $(git rev-parse HEAD~1) HEAD | grep '/' | cut -d '/' -f 1 | uniq | sort > folders_changed.txt
+
+            # find Terraform stacks based on presence of a lock.hcl file
+            find . -name .terraform.lock.hcl | cut -d '/' -f 2 | uniq | sort > tf_stacks.txt
+
+            # get intersect
+            folders="$(comm -12 folders_changed.txt tf_stacks.txt | xargs)"
+            # debug
+            echo "folders: ${folders}"
+
+            # generate continued YAML
+            f=$folders yq '.workflows.terraform.jobs[0].tf.matrix.parameters.folder = env(f) | .workflows.terraform.jobs[0].tf.matrix.parameters.folder = (.workflows.terraform.jobs[0].tf.matrix.parameters.folder | split(" "))' .circleci/terraform.yml > .circleci/next.yml
+      - run: cat .circleci/next.yml
+      - continuation/continue:
+          parameters: ''
+          configuration_path: .circleci/next.yml
 
 workflows:
   setup:
     jobs:
-      - noop
+      - setup
