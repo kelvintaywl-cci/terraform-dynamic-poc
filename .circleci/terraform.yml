@@ -38,5 +38,6 @@ workflows:
       - tf:
           matrix:
             parameters:
+              apply: true
               # to be filled by setup workflow
               folder: []
