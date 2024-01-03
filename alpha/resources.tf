@@ -5,5 +5,5 @@ locals {
 
 resource "circleci_runner_resource_class" "alpha" {
   resource_class = "${local.namespace}/${local.resource_class}"
-  description    = "Alpha Runner v1.0"
+  description    = "Alpha Runner v1.2"
 }
